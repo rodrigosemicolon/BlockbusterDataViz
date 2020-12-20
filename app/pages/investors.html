@@ -334,9 +334,11 @@
                                 .interpolator(d3.interpolateRgb("white", "brown"))
                                 .domain([1,10]);
 
+                    let customWidth=800;
+
                     let heatSvg = d3.select("#heatmap")
                         .append("svg")
-                        .attr("width", width)
+                        .attr("width", customWidth)
                         .attr("height", height);
 
                     heatSvg.append("text")
@@ -352,8 +354,24 @@
                         .attr("text-anchor", "middle")
                         .text("Distributors");
 
+                    for(let i=0; i<=10;i++){
+                     
+                        let legend = heatSvg.append("rect")
+                            .attr("x",width-margin.right + 50)
+                            .attr("y",(height-margin.top-margin.bottom)/2 + margin.top +50-i*15)
+                            .attr("width",20)
+                            .attr("height",15)                     
+                            .style("fill",colorRange(i));
+                        
+                        if(i%2==0){
+                        
+                            let legendLabel = heatSvg.append("text")
+                                .attr("x",width-margin.right + 70)
+                                .attr("y",(height-margin.top-margin.bottom)/2 + margin.top +50-i*15+5 )
+                                .text("-" + i);
+                        }
+                    }
                     
-
                     let xScale = d3.scaleBand()
                         .range([margin.left, width - margin.right])
                         .domain(distributors)
