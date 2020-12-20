@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <meta name="keywords" content="" />
+        <meta name="description" content="" />
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+        <title>Blockbusters</title>
+        <link href="http://fonts.googleapis.com/css?family=Arvo" rel="stylesheet" type="text/css" />
+        <link href="http://fonts.googleapis.com/css?family=Lobster" rel="stylesheet" type="text/css" />
+        <link href="../style.css" rel="stylesheet" type="text/css" />
+        <meta charset="utf-8">
+        <script src="http://d3js.org/d3.v5.js"></script>
+        <script>
+
+                let width = 600;
+                let height = 600;
+                const margin = { 'top': 20, 'right': 20, 'bottom': 175, 'left': 100 };
+                let dataset = [];
+               
+                //draw all the charts
+                function draw() {
+
+                    scatterPlot(dataset);
+                    heatMap(dataset);
+                    stackedGraph(dataset);
+                    lollipop(dataset);
+             
+                }
+
+
+
+                //Draw the scatter plot graph initially based on https://www.d3-graph-gallery.com/graph/scatter_basic.html
+                function scatterPlot(data) {
+                    
+
+                    let scatterelevantData = [];
+
+                    for (movie of data) {
+
+                        scatterelevantData.unshift({ name: movie.title, genre: movie.genre, year: movie.year, gross: movie.worldwideGross / 1000000 });
+                    
+                    }
+                    
+                    let genres = getParamArray(dataset, "genre");
+                    let colorArr = ["#21abcd", '#8a2be2', '#367588', '#ccccff', '#88d8c0', '#003399', '#df00ff', '#cc3333', '#483c32', '#3cd070', '#fbceb1', 'yellow'];                    
+                    let colorMap = new Array(colorArr.length);                    
+                    let i = 0;
+
+                    for (genre of genres) {
+                        colorMap[genre] = colorArr[i];
+                        i++;
+                    }
+
+                    let customWidth = 800;
+                    let scatterSvg = d3.select("#scatterplot")
+                        .append("svg")
+                            .attr("width", customWidth)
+                            .attr("height", height);
+
+                    let xMin = d3.min(scatterelevantData, function (d) { return d.year; });
+                    let xMax = d3.max(scatterelevantData, function (d) { return d.year; });
+
+                    let xScale = d3.scaleLinear()
+                        .domain([xMin, xMax])
+                        .range([margin.left, width - margin.right]);
+
+                    let yScale = d3.scaleLinear()
+                        .domain([3000, 0])
+                        .range([margin.top, height - margin.bottom]);
+
+                    let xAxis = d3.axisBottom(xScale),
+                        yAxis = d3.axisLeft(yScale);
+
+                    xAxis.tickValues(d3.range(xMin, xMax + 1, 1));
+
+                    xAxis.tickFormat(d3.format("d"));
+
+                    scatterSvg.append("text")
+                            .attr("x", margin.left-70)
+                            .attr("y",((height-margin.bottom-margin.top)/2)+margin.top)
+                            .attr("text-anchor","middle")
+                            .attr("transform","rotate(-90," + (margin.left-70) + "," + (((height-margin.bottom-margin.top)/2)+margin.top) +")")
+                            .text("Revenue in millions of dollars");
+
+                    scatterSvg.append("text")
+                            .attr("x",((width-margin.left-margin.right)/2)+margin.left )
+                            .attr("y",height-margin.bottom + 70)
+                            .attr("text-anchor","middle")
+                            .text("Years");
+
+                    let clip = scatterSvg.append("defs").append("svg:clipPath")
+                            .attr("id", "clip")
+                            .append("svg:rect")
+                            .attr("width", width-margin.right -margin.left +8)
+                            .attr("height", height-margin.bottom -margin.top)
+                            .attr("x", margin.left-3)
+                            .attr("y", margin.top);
+
+                    let brush = d3.brush()                 
+                        .extent([[0, 0], [width, height]]) 
+                        .on("end", updateChart) ;
+
+                    
+                    let scatter = scatterSvg.append('g')
+                        .attr("class","scatter")
+                        .attr("clip-path", "url(#clip)");
+
+
+                    scatterSvg.append("g")
+                        .attr("class", "xaxis")
+                        .attr("transform", "translate(0, " + (height - margin.bottom) + ")")
+                        .call(xAxis)
+                        .selectAll("text")
+                            .style("text-anchor", "end")
+                            .attr("dx", "-.8em")
+                            .attr("dy", ".15em")
+                            .attr("transform", "rotate(-65)");
+
+                    scatterSvg.append("g")
+                        .attr("class", "yaxis")
+                        .attr("transform", "translate(" + (margin.left - 10) + ", 0)")
+                        .call(yAxis);
+
+
+                    scatter.selectAll("circle")
+                        .data(scatterelevantData)
+                        .enter()
+                        .append("circle")
+                            .attr("class","cell")
+                            .attr("cx", function (d) {
+                                return xScale(d.year);
+                            })
+                            .attr("cy", function (d) {
+                                return yScale(d.gross);
+                            })
+                            .attr("r", 3)
+                            .attr("fill", function (d) {
+                                return colorMap[d.genre];
+                            })
+                        .append("title")
+                            .text(function (d) { return (d.name + "\n" + d.year + "\n" + d.gross.toFixed(2) + " Million dollars"); });
+                    
+                       
+                    scatter
+                        .append("g")
+                        .attr("class", "brush")
+                        .call(brush);
+
+                    let labelScale = d3.scaleBand().domain(genres).range([margin.top, (height - margin.bottom) / 2]);
+                    let labelX = width - margin.right + 50;
+                    
+                    scatterSvg.selectAll()
+                        .data(genres)
+                        .enter()
+                        .append('circle')
+                            .attr('cy', function (d) { return labelScale(d) - 5; })
+                            .attr('cx', labelX)
+                            .attr('r', 5)
+                            .style('fill', function (d) { return colorMap[d]; })
+                            .on("mouseover",function(d){filterGenre(d);})
+                            .on("mouseleave",unfilterGenre);
+
+                    scatterSvg.selectAll()
+                        .data(genres)
+                        .enter()
+                        .append('text')
+                            .attr('y', function (d) { return labelScale(d); })
+                            .attr('x', (labelX + 20))
+                            .text(function (d) { return d; });
+                    
+
+                    function filterGenre(filter_genre){
+                        scatter
+                            .selectAll(".cell")
+                            .transition().duration(100)
+                            .attr("visibility",function(d){if (d.genre==filter_genre) return "visible";else{return "hidden";}})
+
+                    }
+                    
+                    //recolor to all cells
+                    function unfilterGenre(){
+                        scatter
+                            .selectAll(".cell")
+                            .transition().duration(100)
+                            .attr("visibility",function(d) {return "visible";})
+                    }
+
+                    let idleTimeout;
+                    
+                    function idled() { 
+
+                        idleTimeout = null; 
+                   
+                    }
+
+                    //Update the chart after zooming heavily modified from https://www.d3-graph-gallery.com/graph/interactivity_brush.html#brushingforzoom
+                    function updateChart() {
+                        
+
+                                let extent = d3.event.selection
+                                let minX;
+                                let maxX;
+                                let minY;
+                                let maxY;
+
+                                if (!extent) {
+                                    
+                                    if (!idleTimeout){
+                                    
+                                        return idleTimeout = setTimeout(idled, 350);
+                                   
+                                    }
+                                   
+                                    xScale.domain([1977, 2019])
+                                    yScale.domain([3000,0])
+                                    minX=1977;
+                                    maxX=2019;
+
+                                } else {
+                                    
+                                    maxX=Math.floor(d3.max([xScale.invert(extent[1][0]), xScale.invert(extent[0][0])]))
+                                    minX=Math.floor(d3.min([xScale.invert(extent[1][0]), xScale.invert(extent[0][0])]))
+                                    maxY=Math.floor(d3.max([yScale.invert(extent[1][1]), yScale.invert(extent[0][1])]))
+                                    minY=Math.floor(d3.min([yScale.invert(extent[1][1]), yScale.invert(extent[0][1])]))
+                                   
+                                    xScale.domain([minX,maxX])
+                                    yScale.domain([maxY, minY])
+                                   
+                                    scatter.select(".brush").call(brush.move, null) 
+                                }
+
+                            
+                                xAxis = d3.select(".xaxis").call(d3.axisBottom(xScale)
+                                    .tickFormat(d3.format("d"))
+                                    .tickValues(d3.range(minX, maxX+1 , 1)))
+                                    .selectAll("text")
+                                        .style("text-anchor", "end")
+                                        .attr("dx", "-.8em")
+                                        .attr("dy", ".15em")
+                                        .attr("transform", "rotate(-65)");
+                                            
+
+                                
+                                yAxis = d3.select(".yaxis").call(d3.axisLeft(yScale))
+                                scatter
+                                    .selectAll(".cell")
+                                    .transition().duration(1000)
+                                        .attr("cx", function (d) { return xScale(d.year); })
+                                        .attr("cy", function (d) { return yScale(d.gross); })
+
+                            }
+
+
+                }
+
+
+
+
+
+                //Get an array of the different values for a certain attribute
+                function getParamArray(data, parameter) {
+                    
+
+                    let arr = [];
+                    let i = 0;
+                    
+                    for (movie of data) {
+                    
+                        if (arr.indexOf(movie[parameter]) == -1 && movie[parameter] !== null) {
+                    
+                            arr[i] = movie[parameter];
+                    
+                            i++;
+                    
+                        }
+                    
+                    }
+                    
+                    return arr;
+
+                }
+
+
+                //Get the average rating and number of instances of a genre, distributor combination
+                function getHeatmapData(data, g, d) {
+
+                    let incr = 0;
+                    let counter = 0;
+                    
+                    for (movie of data) {
+                    
+                        if ((movie["genre"] == g || movie["subGenre"] == g) && movie["distributor"] == d) {
+                    
+                            incr += movie["imdb"];
+                            counter++;
+                    
+                        }
+                    
+                    }
+                    
+                    if (incr == 0 && counter == 0) {
+                    
+                        return {average:0,sampleSize:0};
+                    
+                    }
+                    
+                    return {average:incr / counter,sampleSize:counter};
+                
+                }
+
+
+                //Draw the heatmap chart based on https://www.d3-graph-gallery.com/graph/heatmap_basic.html
+                function heatMap(data) {
+
+
+                    let genres = getParamArray(data, "genre");
+                    let distributors = getParamArray(data, "distributor");
+                    let treatedData = [];
+
+                    for (g of genres) {
+
+                        for (d of distributors) {
+
+                            heatData = getHeatmapData(data, g, d);
+                            
+                            treatedData.push({ genre: g, distributor: d, val:heatData['average'],n:heatData['sampleSize']  });
+
+                        }
+                    }
+
+                    
+                    let colorRange = d3.scaleSequential()
+                                .interpolator(d3.interpolateRgb("white", "brown"))
+                                .domain([1,10]);
+
+                    let heatSvg = d3.select("#heatmap")
+                        .append("svg")
+                        .attr("width", width)
+                        .attr("height", height);
+
+                    heatSvg.append("text")
+                        .attr("x", margin.left - 70)
+                        .attr("y", ((height - margin.bottom - margin.top) / 2) + margin.top)
+                        .attr("text-anchor", "middle")
+                        .attr("transform", "rotate(-90," + (margin.left - 70) + "," + (((height - margin.bottom - margin.top) / 2) + margin.top) + ")")
+                        .text("Genres");
+
+                    heatSvg.append("text")
+                        .attr("x", ((width - margin.left - margin.right) / 2) + margin.left)
+                        .attr("y", height - margin.bottom + 130)
+                        .attr("text-anchor", "middle")
+                        .text("Distributors");
+
+                    
+
+                    let xScale = d3.scaleBand()
+                        .range([margin.left, width - margin.right])
+                        .domain(distributors)
+                        .padding(0.05);
+                    let yScale = d3.scaleBand()
+                        .range([height - margin.bottom, 0])
+                        .domain(genres)
+                        .padding(0.05);
+
+                    heatSvg.append("g")
+                        .attr("transform", "translate(" + margin.left + ",0)")
+                        .call(d3.axisLeft(yScale));
+                    
+                    heatSvg.append("g")
+                        .attr("transform", "translate(0," + (height - margin.bottom) + ")")
+                        .call(d3.axisBottom(xScale))
+                        .selectAll("text")
+                            .style("text-anchor", "end")
+                            .attr("dx", "-.8em")
+                            .attr("dy", ".15em")
+                            .attr("transform", "rotate(-65)");
+
+                    //Add the cells to the chart        
+                    heatSvg.selectAll()
+                        .data(treatedData)
+                        .enter()
+                        .append('rect')
+                            .attr('x', (data) => xScale(data.distributor))
+                            .attr('y', (data) => yScale(data.genre))
+                            .attr("width", xScale.bandwidth())
+                            .attr("height", yScale.bandwidth())
+                            .style("fill", function (data) { if (data.val > 0) { return colorRange(data.val); } else { return 'white'; } })
+                            .append("title")
+                            .text(function (data) { if (data.val > 0){ 
+                                return "Average rating: " + data.val.toFixed(2) + "\nSample size: " + data.n; }});
+                        
+                }
+
+
+
+
+
+
+                //Draw the stacked bar chart
+                function stackedGraph(data) {
+                    
+
+                    let distributors = getParamArray(data, "distributor");
+                    let budgets = [];
+                    let grosses = [];
+                    let treatedData = [];
+                    
+                    for (s of distributors) {
+                        budgets[s] = [];
+                        grosses[s] = [];
+                    }
+
+                    for (movie of data) {
+                        budgets[movie['distributor']].push(movie['budget']);
+                        grosses[movie['distributor']].push(movie['worldwideGross']);
+                    }
+
+                    for (k of distributors) {
+
+                        let sample_size = budgets[k].length;
+                        let mean_budgetval = ((budgets[k].reduce(function (a, b) { return a + b; }) / budgets[k].length) / 1000000);
+                        let mean_grossval = ((grosses[k].reduce(function (a, b) { return a + b; }) / grosses[k].length) / 1000000);
+                        let mean_revval = (mean_budgetval / mean_grossval).toFixed(2);
+                       
+                        treatedData.push({ name: k, mean_budget: mean_budgetval, mean_gross: mean_grossval, percent_revenue: mean_revval, n: sample_size });
+                    
+                    }
+
+                    let customWidth = 800;
+
+                    let stackedSvg = d3.select('#stackedbargraph')
+                        .append('svg')
+                            .attr('width', customWidth)
+                            .attr('height', height);
+
+                    stackedSvg.append("text")
+                        .attr("x", margin.left - 70)
+                        .attr("y", ((height - margin.bottom - margin.top) / 2) + margin.top)
+                        .attr("text-anchor", "middle")
+                        .attr("transform", "rotate(-90," + (margin.left - 70) + "," + (((height - margin.bottom - margin.top) / 2) + margin.top) + ")")
+                        .text("Millions of dollars");
+
+                    stackedSvg.append("text")
+                        .attr("x", ((width - margin.left - margin.right) / 2) + margin.left)
+                        .attr("y", height - margin.bottom + 140)
+                        .attr("text-anchor", "middle")
+                        .text("Distributors");
+
+                    let xScale = d3.scaleBand().domain(treatedData.map((dp) => dp.name)).rangeRound([margin.left, width - margin.right]).padding(0.5);
+
+                    let yScale = d3.scaleLinear().domain([0, 1000]).range([height - margin.bottom, margin.top]);
+
+                    let x_axis = d3.axisBottom()
+                        .scale(xScale);
+
+                    let y_axis = d3.axisLeft()
+                        .scale(yScale);
+
+                    stackedSvg.append("g")
+                        .attr("transform", "translate(" + margin.left + ",0)")
+                        .call(y_axis);
+
+                    stackedSvg.append("g")
+                        .attr("transform", "translate(0, " + (height - margin.bottom + 10) + ")")
+                        .call(x_axis)
+                        .selectAll("text")
+                            .style("text-anchor", "end")
+                            .attr("dx", "-.8em")
+                            .attr("dy", ".15em")
+                            .attr("transform", "rotate(-65)");
+
+                    //draw the gross bars
+                    let bars = stackedSvg.selectAll('.bar')
+                        .data(treatedData)
+                        .enter()
+                        .append('rect')
+                            .attr("class","stackedbar")
+                            .attr('width', xScale.bandwidth())
+                            .attr('height', (data) => height - margin.bottom - yScale(data.mean_gross))
+                            .attr('x', (data) => xScale(data.name))
+                            .attr('y', (data) => yScale(data.mean_gross))
+                            .style('fill', 'red');
+                      
+                    //draw the budget bars
+                    let bars2 = stackedSvg.selectAll('.bar')
+                        .data(treatedData)
+                        .enter()
+                        .append('rect')
+                            .attr("class","stackedbar")
+                            .attr('width', xScale.bandwidth())
+                            .attr('height', (data) => height - margin.bottom - yScale(data.mean_budget))
+                            .attr('x', (data) => xScale(data.name))
+                            .attr('y', (data) => yScale(data.mean_budget))
+                            .style('fill', 'maroon');
+                    
+                    stackedSvg.selectAll(".stackedbar")
+                            .append("title")
+                                .text(function (d) {
+                                    return "gross: " + d.mean_gross.toFixed(2) + " million dollars\n" +
+                                        "budget: " + d.mean_budget.toFixed(2) + " million dollars\n" +
+                                        "budget/gross: " + d.percent_revenue*100 + "%\n" +
+                                        "sample size: " + d.n + "\n"
+                                        ;});
+
+                    let labelScale = d3.scaleBand().domain([0, 1]).range([margin.top, (height - margin.bottom) / 2]);
+                    let labelX = width - margin.right + 20;
+                    let label = stackedSvg.selectAll();
+
+                    stackedSvg.append("rect")
+                        .attr("x", labelX)
+                        .attr("y", margin.top)
+                        .attr("height", 10)
+                        .attr("width", 10)
+                        .style("fill", 'red');
+                        
+
+                    stackedSvg.append("rect")
+                        .attr("x", labelX)
+                        .attr("y", margin.top + 30)
+                        .attr("height", 10)
+                        .attr("width", 10)
+                        .style("fill", 'maroon');
+                        
+
+                    stackedSvg.append("text")
+                        .attr("x", labelX + 20)
+                        .attr("y", margin.top + 10)
+                        .attr("height", 10)
+                        .attr("width", 10)
+                        .text("Average gross");
+
+                    stackedSvg.append("text")
+                        .attr("x", labelX + 20)
+                        .attr("y", margin.top + 30 + 10)
+                        .attr("height", 10)
+                        .attr("width", 10)
+                        .text("Average budget");
+
+
+                }
+
+
+                //Draw the modified lollipop chart
+                function lollipop(data) {
+
+
+                    let customWidth=800;
+
+                    let lolSvg = d3.select('#lollipop')
+                        .append('svg')
+                            .classed("lolSvg", true)
+                            .attr('width', customWidth)
+                            .attr('height', height);
+
+                    lolSvg.append("text")
+                        .attr("x", margin.left - 70)
+                        .attr("y", ((height - margin.bottom - margin.top) / 2) + margin.top)
+                        .attr("text-anchor", "middle")
+                        .attr("transform", "rotate(-90," + (margin.left - 70) + "," + (((height - margin.bottom - margin.top) / 2) + margin.top) + ")")
+                        .text("Genres");
+
+                    lolSvg.append("text")
+                        .attr("x", ((width - margin.left - margin.right) / 2) + margin.left)
+                        .attr("y", height - margin.bottom + 70)
+                        .attr("text-anchor", "middle")
+                        .text("Millions of dollars");        
+
+                    let mpaas = getParamArray(data, "audience");
+                    let genres = getParamArray(data,"genre");
+                    let treatedData = [];
+                    
+                    for (rating of mpaas) {
+                        
+                        let jsonArr = [];
+                        let budgets = [];
+                        let grosses = [];
+
+
+                        for (genre of genres) {
+                            
+                            grosses[genre] = [];
+
+                        }
+
+                        for (movie of data) {
+
+                            if (movie['audience'] == rating){
+                             
+                                grosses[movie['genre']].push(movie['worldwideGross']);
+                            
+                            }
+                        }
+
+
+                        for (k of genres) {
+
+                            if (grosses[k].length > 0) {
+                                
+                                let sampleSize = grosses[k].length;
+                                let minG = d3.min(grosses[k]) / 1000000;
+                                let maxG = d3.max(grosses[k]) / 1000000;
+                                let meanG = ((grosses[k].reduce(function (a, b) { return a + b; }) / grosses[k].length) / 1000000);
+                                let auxJson = { genre: k, min_gross: minG, mean_gross: meanG, max_gross: maxG, n: sampleSize };
+                                
+                                jsonArr.push(auxJson);
+
+                            }
+                        }
+
+                        treatedData[rating] = jsonArr;
+
+                    }
+
+                    let labelX=width-margin.right + 50;
+
+                    lolSvg.append("circle")
+                        .attr("cx", labelX)
+                        .attr("cy", margin.top +20)
+                        .attr("r", 5)
+                        .style("fill", 'red');
+                        
+                
+                    lolSvg.append("circle")
+                        .attr("cx", labelX)
+                        .attr("cy", margin.top +40)
+                        .attr("r", 5)
+                        .style("fill", 'brown');
+                        
+                    lolSvg.append("circle")
+                        .attr("cx", labelX)
+                        .attr("cy", margin.top +60)
+                        .attr("r", 5)
+                        .style("fill", 'maroon');
+
+                    lolSvg.append("text")
+                        .attr("x",labelX + 10)
+                        .attr("y", margin.top + 25)
+                        .text("min gross");
+                    
+                    lolSvg.append("text")
+                        .attr("x",labelX + 10)
+                        .attr("y", margin.top + 45)
+                        .text("mean gross");
+                    
+                    lolSvg.append("text")
+                        .attr("x",labelX + 10)
+                        .attr("y", margin.top + 65)
+                        .text("max gross");
+                        
+                        
+
+                    d3.select("#selectButton")
+                        .selectAll('myOptions')
+                        .data(mpaas)
+                        .enter()
+                        .append('option')
+                            .text(function (d) {  return d;  })
+                            .attr("value", function (d) { return d; });
+
+                    //Update the chart whenever a new mpaa rating is selected
+                    function updateChart(selectedRating) {
+                        
+
+                        let lolSvg = d3.select('.lolSvg');
+                        let relevantData = treatedData[selectedRating];
+                        let max = d3.max(relevantData.map((d) => d.max_gross));
+                        let xScale = d3.scaleLinear().domain([0, max]).range([margin.left, width - margin.right]);
+                        let yScale = d3.scaleBand().domain(genres).rangeRound([margin.top, height - margin.bottom]);
+
+                        lolSvg.select(".xAxis") 
+                            .remove();
+
+                        lolSvg.append("g")
+                                .attr("class", "xAxis")
+                                .attr("transform", "translate(0," + (height - margin.bottom) + ")")
+                                .call(d3.axisBottom(xScale));
+                        
+                        lolSvg.append("g")
+                                .attr("class", "yAxis")
+                                .attr("transform", "translate(" + margin.left + ",0)")
+                                .call(d3.axisLeft(yScale));
+
+
+                        let lines = lolSvg.selectAll('.lline')
+                            .data(relevantData);
+
+                        lines.exit()
+                                .attr("class", function (d) { return "exit lline"; }).remove();
+
+                        lines
+                                .attr("class", function (d) { return "update lline"; })
+                                .attr("x1", (d) => xScale(d.min_gross))
+                                .attr("y1", (d) => margin.top + yScale(d.genre))
+                                .attr("x2", (d) => xScale(d.max_gross))
+                                .attr("y2", (d) => margin.top + yScale(d.genre))
+                                .style("stroke", "black")
+                                .style("stroke-width", 1);
+
+                        //adds new lines if necessary
+                        lines.enter()
+                            .append("line")
+                                .attr("class", function (d) { return "enter lline"; })
+                                .attr("x1", (d) => xScale(d.min_gross))
+                                .attr("y1", (d) => margin.top + yScale(d.genre))
+                                .attr("x2", (d) => xScale(d.max_gross))
+                                .attr("y2", (d) => margin.top + yScale(d.genre))
+                                .style("stroke", "black")
+                                .style("stroke-width", 1);
+
+                        let circle1 = lolSvg.selectAll('.circle1')
+                            .data(relevantData);
+                        
+                        circle1.exit()
+                                .attr("class", function (d) { return "exit circle1"; })
+                            .remove();
+
+                        circle1
+                                .attr("class", function (d) { return "update circle1"; })
+                                .attr("cx", (d) => xScale(d.min_gross))
+                                .attr("cy", (d) => margin.top + yScale(d.genre))
+                                .attr("r", 5)
+                                .style("fill", "red");
+
+                        circle1.enter()
+                            .append("circle")
+                                .attr("class", function (d) { return "enter circle1"; })
+                                .attr("cx", (d) => xScale(d.min_gross))
+                                .attr("cy", (d) => margin.top + yScale(d.genre))
+                                .attr("r", 5)
+                                .style("fill", "red");
+
+
+                        let circle2 = lolSvg.selectAll('.circle2')
+                            .data(relevantData);
+                        
+                        circle2.exit()
+                                .attr("class", function (d) { return "exit circle2"; })
+                            .remove();
+
+                        circle2
+                                .attr("class", function (d) { return "update circle2"; })
+                                .attr("cx", (d) => xScale(d.mean_gross))
+                                .attr("cy", (d) => margin.top + yScale(d.genre))
+                                .attr("r", 5)
+                                .style("fill", "brown");
+
+                        circle2.enter()
+                            .append("circle")
+                                .attr("class", function (d) { return "enter circle2"; })
+                                .attr("cx", (d) => xScale(d.mean_gross))
+                                .attr("cy", (d) => margin.top + yScale(d.genre))
+                                .attr("r", 5)
+                                .style("fill", "brown");
+
+
+
+                        let circle3 = lolSvg.selectAll('.circle3')
+                            .data(relevantData);
+                        
+                        circle3.exit()
+                                .attr("class", function (d) { return "exit circle3"; })
+                            .remove();
+
+                        circle3
+                                .attr("class", function (d) { return "update circle3"; })
+                                .attr("cx", (d) => xScale(d.max_gross))
+                                .attr("cy", (d) => margin.top + yScale(d.genre))
+                                .attr("r", 5)
+                                .style("fill", "maroon");
+
+                        circle3.enter()
+                            .append("circle")
+                                .attr("class", function (d) { return "enter circle3"; })
+                                .attr("cx", (d) => xScale(d.max_gross))
+                                .attr("cy", (d) => margin.top + yScale(d.genre))
+                                .attr("r", 5)
+                                .style("fill", "maroon");
+
+
+                    }
+
+                    updateChart("PG-13");
+
+                    d3.select("#selectButton").on("change", function (d) {
+                    
+                        let selectedRating = this.value;
+
+                        updateChart(selectedRating);
+                   
+                    });
+                }
+
+                //Assign the data to the dataset variable
+                function assignData(data) {
+                    
+                    
+                    dataset = data;
+
+                }
+        </script>
+    </head>
+    <body>
+		<div id="bg">
+			<div id="outer">
+				<div id="header">
+					<div id="logo">
+						<h1>
+							<a href="../index.html">Blockbusters</a>
+						</h1>
+					</div>
+					
+				</div>
+				<div id="main">
+					<div id="sidebar">
+						
+						<ul class="linkedList">
+				
+							<li>
+								<a href="data.html">The Data</a>
+							</li>
+							<li>
+								<a href="investors.html">For Investors</a>
+							</li>
+						
+							<li>
+								<a href="sources.html">Sources</a>
+							</li>
+							
+							
+						</ul>
+					</div>
+					<div id="content" text-align="center">
+                            <p>
+                                Plot of every movie in the dataset by year and worldwide gross where the color represents its main genre.<br>
+                                Select area to zoom, double click to zoom back to the default view.<Br>
+                                Hover over the colors in the legend to filter out other genres.
+                            </p>
+                            <div id="scatterplot"></div>
+                            <p>
+                                Heatmap representing the average imdb ratings for each genre and distributor combination.<br>
+                                Darker tones imply higher average imdb rating.<br>
+                                Hover over a cell to view its exact value.                                
+                            </p>
+
+                            <div id="heatmap"></div>
+                            <p>
+                                Representation of the average worldwide gross and budget values for each distributor.<br>
+                                Hover over the bars to get more detailed information.
+                            </p>
+                            <div id="stackedbargraph"></div>
+                            <p>
+                                Representation of the genres' minimum, mean and max worldwide gross for each mpaa rating.<br>
+                                PG-13:  Parents Strongly Cautioned. Some Material May Be Inappropriate For Children Under 13.<br>
+                                PG: Parental Guidance Suggested. Some Material May Not Be Suitable For Children.<br>
+                                G:  General Audiences. All Ages Admitted.<br>
+                                R:  Restricted. Children Under 17 Require Accompanying Parent or LEGAL Guardian.<br>
+                                Unrated:    not possessing a mpaa rating.
+                            </p>
+                            <div id="lollipop">
+                                <select id="selectButton"></select>
+                            </div>
+							<script>
+                                d3.csv("../data/Blockbusters_2019-1977.csv",function(d){
+                                    return{
+                                          genre: d.genre_1,
+                                          subGenre:d.genre_2,
+                                          imdb:+d.imdb_rating,
+                                          length:+d.length_in_min,
+                                          audience:d.mpaa_rating,
+                                          title:d.film_title,
+                                          budget:+d.film_budget.replace(/\D/g,''),
+                                          distributor:d.domestic_distributor,
+                                          worldwideGross:+d.worldwide_gross.replace(/\D/g,''),
+                                          year:+d.release_year                
+                                      };
+                                  })
+                                .then(assignData)
+                                .then(draw)
+                                .catch(function(err){console.log(err)});
+                        
+                            </script>
+
+					</div>
+					<br class="clear" />
+				</div>
+			</div>
+		</div>
+    </body>
+</html>

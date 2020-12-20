@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <meta name="keywords" content="" />
+        <meta name="description" content="" />
+        <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<title>Blockbusters</title>
+        <link href="http://fonts.googleapis.com/css?family=Arvo" rel="stylesheet" type="text/css" />
+        <link href="http://fonts.googleapis.com/css?family=Lobster" rel="stylesheet" type="text/css" />
+        <link href="../style.css" rel="stylesheet" type="text/css" />
+        <meta charset="utf-8">
+        <script src="http://d3js.org/d3.v5.js"></script>
+        <script>
+            
+                let width = 600;
+                let height = 600;
+                const margin = { 'top': 20, 'right': 20, 'bottom': 175, 'left': 100 };
+                let dataset = [];
+                
+
+                //Draw the graph and add search feature
+                function draw() {
+                    
+
+                    horizontalBarGraph(dataset);
+                    search(dataset);
+                    
+
+                }
+
+                //implementation of the search movies feature
+                function search(data) {
+
+
+                        let inp = document.getElementById('searchmovies'); 
+
+                        inp.addEventListener('input', (e) => {
+
+                            let possibleMovies = [];
+                            
+                            if (e.target.value) {
+                                
+                                possibleMovies = data.filter( movie=> movie.title.toLowerCase().includes(e.target.value));
+                                
+                            }
+                            let ul = document.getElementById("suggestions");
+                            
+                            ul.innerHTML='';
+                            
+                            for(let i=0;i<possibleMovies.length && i<5;i++){
+                            
+                                let li = document.createElement('li');
+                               
+                                li.innerText=possibleMovies[i]['title'];
+                               
+                                li.onclick= function() {
+                                    
+                                    document.getElementById("suggestions").innerHTML="";
+                                    inp.value="";
+                                    showMovie(possibleMovies[i]);
+                                 };
+                               
+                                ul.appendChild(li);
+                            
+                            }
+                        
+                        });
+
+                        //Display the selected movie's relevant info
+                        function showMovie(movie) {
+                            
+
+                            document.getElementById("explore2").style.display="block";
+
+                            let title = document.getElementById("movietitle");
+                            title.innerText=movie.title;
+
+                            let year = document.getElementById("movieyear");
+                            year.innerText=movie.year;
+
+                            let rank = document.getElementById("movierank");
+                            rank.innerText=movie.rankInYear;
+
+                            let dist = document.getElementById("moviedist");
+                            dist.innerText=movie.distributor;
+
+                            let mpaa = document.getElementById("moviempaa");
+                            mpaa.innerText=movie.audience;
+
+                            let genre = document.getElementById("moviegenre");
+                            genre.innerText=movie.genre;
+
+                            let subGenre = document.getElementById("moviesubgenre");
+                            subGenre.innerText=movie.subGenre;
+
+                            let length = document.getElementById("movielength");
+                            length.innerText=Math.floor(movie.length/60) +"h" + movie.length%60;
+
+                            let gross = document.getElementById("moviegross");
+                            gross.innerText=(movie.worldwideGross/1000000).toFixed(2) + "  million dollars";
+
+                            let budget = document.getElementById("moviebudget");
+                            budget.innerText=(movie.budget/1000000).toFixed(2) + "  million dollars";
+
+                        }
+                    }
+               
+
+                //Draw the horizontal bar graph
+                function horizontalBarGraph(data) {
+                    
+
+                    let genres = getParamArray(data, "genre");
+
+                    let customHeight=500;
+
+                    let horizontalSvg = d3.select('#horizontalbar')
+                        .append('svg')
+                            .classed("horizontalSvg", true)
+                            .attr('width', width)
+                            .attr('height', customHeight);
+
+                    horizontalSvg.append("text")
+                        .attr("x",(width-margin.left-margin.right)/2 + margin.left)
+                        .attr("y",height-margin.bottom + 40)
+                        .style("text-anchor","middle")
+                        .text("Movie count");
+
+                    let optionsArr = getParamArray(data, "year");
+
+                    optionsArr.unshift(0);
+
+                    d3.select("#selectButton")
+                        .selectAll('myOptions')
+                        .data(optionsArr)
+                        .enter()
+                        .append('option')
+                            .text(function (d) { if (d == 0) { return "all years"; } else { return d; } }) 
+                            .attr("value", function (d) { return d; });
+
+
+                    //Update the horizontal bar chart whenever a new time period is selected
+                    function updateChart(selectedYear) {
+
+                        
+                        let arr = [];
+                        let genreData = [];
+                        let max=0;
+                        
+                        if (selectedYear == 0) {
+                           
+                            for (g of genres) {
+                           
+                                arr[g] = 0;
+                           
+                            }
+
+                            for (movie of data) {
+                           
+                                arr[movie['genre']] = arr[movie['genre']] + 1;
+
+                            }
+                           
+                            for (k in arr) {
+                           
+                                genreData.push({ name: k, count: arr[k] });
+                           
+                            }
+                            
+                            max = 200;
+                        }
+                        else {
+                           
+                            for (g of genres) {
+                           
+                                arr[g] = 0;
+                           
+                            }
+
+                            for (movie of data) {
+                           
+                                if (movie['year'] == selectedYear && movie['year'] == selectedYear) {
+                           
+                                    arr[movie['genre']] = arr[movie['genre']] + 1;
+                           
+                                }
+                           
+                            }
+                           
+                            for (k in arr) {
+                           
+                                genreData.push({ name: k, count: arr[k] });
+                           
+                            }
+                            
+                            max = 10;
+                        }
+
+                        let genreDataFiltered = genreData.filter((data) => data.count > 0);
+                        let horizontalBarSvg = d3.select('.horizontalSvg');
+                        let xScale = d3.scaleLinear().domain([0, max]).range([0, width - margin.right - margin.left]);
+                        let yScale = d3.scaleBand().domain(genreDataFiltered.map((dp) => dp.name)).rangeRound([margin.top, height - margin.bottom]).padding(0.1);
+
+                        let bars = horizontalBarSvg.selectAll('.hbar')
+                            .data(genreDataFiltered);
+
+                        let labels = horizontalBarSvg.selectAll('.hlabel')
+                            .data(genreDataFiltered);
+
+                        let counts = horizontalBarSvg.selectAll(".hcount")
+                            .data(genreDataFiltered);
+
+
+                        bars.exit()
+                                .attr("class", function (d) {
+                                    return "exit hbar";
+                                })
+                                .transition(d3.transition()
+                                    .duration(750))
+                                .attr("y", function (d) {
+                                    return height;
+                                })
+                                .attr("height", function (d) {
+                                    return 0;
+                                })
+                            .remove();
+
+                        labels.exit()
+                                .attr("class", function (d) {
+                                    return "exit hlabel";
+                                }) 
+                                .transition(d3.transition()                                    
+                                    .duration(750))
+                                .attr("y", function (d) {
+                                    return height;
+                                })
+                                .attr("height", function (d) {
+                                    return 0;
+                                })  
+                            .remove();
+
+                        counts.exit()
+                                .attr("class", function (d) {
+                                    return "exit hcount";
+                                }) 
+                                .transition(d3.transition()
+                                    .duration(750))
+                                .attr("y", function (d) {
+                                    return height;
+                                }) 
+                                .attr("height", function (d) {
+                                    return 0;
+                                }) 
+                            .remove();
+
+
+                        bars
+                            .attr("class", function (d) {
+                                return "update hbar";
+                            })
+                            .transition(d3.transition()
+                                .delay(1000))
+                            .duration(750)
+                                .attr('x', margin.left)
+                                .attr('y', (data) => yScale(data.name)) 
+                                .attr('width', (data) => xScale(data.count))
+                                .attr('height', yScale.bandwidth())
+                                .style('fill', 'red');
+
+                        labels
+                            .attr("class", function (d) {
+                                return "update hlabel";
+                            })
+                            .transition(d3.transition()
+                                .delay(1000))
+                            .duration(750)
+                                .attr('x', 0)
+                                .attr('y', (data) => yScale(data.name) + yScale.bandwidth()/2)
+                                .text((data) => data.name)
+                                .style('fill', 'black');
+
+
+
+                        counts
+                            .attr("class", function (d) {
+                                return "update hcount";
+                            })
+                            .transition(d3.transition()
+                                .delay(1000))
+                            .duration(750)
+                                .attr('x', (data) => margin.left + 10 + xScale(data.count))
+                                .attr('y', (data) => yScale(data.name) + yScale.bandwidth()/2)
+                                .text((data) => data.count)
+                                .style('fill', 'black');
+                        
+                        //add new bars if necessary
+                        bars.enter()
+                            .append('rect')
+                                .attr("class", "enter hbar")
+                                .transition(d3.transition()
+                                    .delay(1000))
+                                .duration(750)
+                                    .attr('width', (data) => xScale(data.count))
+                                    .attr('height', yScale.bandwidth())
+                                    .attr('x', margin.left)
+                                    .attr('y', (data) => yScale(data.name))
+                                    .style('fill', 'red');
+                                
+                        //add new labels if necessary
+                        labels
+                            .enter()
+                            .append('text')
+                            .attr("class", "enter hlabel")
+                            .transition(d3.transition()
+                                .delay(1000))
+                            .duration(750)
+                                .attr('x', 0)
+                                .attr('y', (data) => yScale(data.name) + yScale.bandwidth()/2)
+                                .text((data) => data.name)
+                                .style('fill', 'black');
+                       
+                        //add new counts if necessary
+                        counts
+                            .enter()
+                            .append('text')
+                            .attr("class", "enter hcount")
+                            .transition(d3.transition()
+                                .delay(1000))
+                            .duration(750)
+                                .attr('x', (data) => margin.left + 10 + xScale(data.count))
+                                .attr('y', (data) => yScale(data.name) + yScale.bandwidth()/2)
+                                .text((data) => data.count)
+                                .style('fill', 'black');
+
+                    }
+
+                    updateChart(0);
+                    
+                    d3.select("#selectButton").on("change", function (d) {
+                    
+                        selectedGroup = this.value;
+                    
+                        updateChart(selectedGroup);
+                   
+                    });
+
+                }
+
+
+
+                //Get an array of the different values for a certain attribute
+                function getParamArray(data, parameter) {
+                    
+
+                    let arr = [];
+                    let i = 0;
+                    
+                    for (movie of data) {
+                    
+                        if (arr.indexOf(movie[parameter]) == -1 && movie[parameter] !== null) {
+                    
+                            arr[i] = movie[parameter];
+                    
+                            i++;
+                    
+                        }
+                    
+                    }
+                    
+                    return arr;
+                
+                }
+
+
+
+                //Assign the data to the dataset variable
+                function assigndata(data) {
+                    dataset = data;
+
+                }
+        </script>
+    </head>
+    <body>
+		<div id="bg">
+			<div id="outer">
+				<div id="header">
+					<div id="logo">
+						<h1>
+							<a href="../index.html">Blockbusters</a>
+						</h1>
+					</div>
+					
+				</div>
+				<div id="main">
+					<div id="sidebar">
+						
+						<ul class="linkedList">
+                            
+                            <li>
+								<a href="data.html">The Data</a>
+							</li>
+							<li>
+								<a href="investors.html">For Investors</a>
+							</li>
+							
+							<li>
+								<a href="sources.html">Sources</a>
+							</li>
+							
+							
+						</ul>
+					</div>
+					<div id="content" text-align="center">
+
+                            
+                            <p> 
+                                Select a time option to view the genre distribution of the top 10 highest grossing movies of that time.
+                            </p>
+                           
+                            
+                            <div id="horizontalbar">
+
+                                <select id="selectButton"></select>
+                                
+                            </div>
+                           
+                            <br class="clear" />
+                            <br class="clear" />
+                           
+                            <div id="explore">
+                                <p>
+                                    Search for an individual movie to see its most relevant attributes.
+                                </p>
+
+                                <br>
+                                <input type="text" name="" id="searchmovies" placeholder="Search movies">
+
+                                <ul id="suggestions"></ul>
+
+                                <div id="explore2">
+
+                                    <table>
+                                        <tr>
+                                            <td>Title</td>
+                                            <td id="movietitle"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Year</td>
+                                            <td id="movieyear"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Rank in year</td>
+                                            <td id="movierank"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Distributor</td>
+                                            <td id=moviedist></td>
+                                        </tr>
+                                        <tr>
+                                            <td>mpaa rating</td>
+                                            <td id="moviempaa"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>genre</td>
+                                            <td id="moviegenre"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>subgenre</td>
+                                            <td id="moviesubgenre"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>length</td>
+                                            <td id="movielength"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>worldwide gross</td>
+                                            <td id = "moviegross"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>budget</td>
+                                            <td id="moviebudget"></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                            <script>
+                                    d3.csv("../data/Blockbusters_2019-1977.csv",function(d){
+                                    return{
+                                          genre: d.genre_1,
+                                          subGenre:d.genre_2,
+                                          imdb:+d.imdb_rating,
+                                          length:+d.length_in_min,
+                                          rankInYear:+d.rank_in_year,
+                                          audience:d.mpaa_rating,
+                                          title:d.film_title,
+                                          budget:+d.film_budget.replace(/\D/g,''),
+                                          distributor:d.domestic_distributor,
+                                          worldwideGross:+d.worldwide_gross.replace(/\D/g,''),
+                                          year:+d.release_year                
+                                      };
+                                  })
+                                .then(assigndata)
+                                .then(draw)
+                                .catch(function(err){console.log(err)});
+                        
+                            </script>
+
+					</div>
+					<br class="clear" />
+				</div>
+			</div>
+		</div>
+    </body>
+</html>
