@@ -17,6 +17,7 @@
                 let height = 600;
                 const margin = { 'top': 20, 'right': 20, 'bottom': 175, 'left': 100 };
                 let dataset = [];
+                let titleToggle=false;
                
                 //draw all the charts
                 function draw() {
@@ -102,10 +103,10 @@
                         .on("end", updateChart) ;
 
                     
-                    let scatter = scatterSvg.append('g')
+                    let scatter = scatterSvg
+                        .append('g')
                         .attr("class","scatter")
                         .attr("clip-path", "url(#clip)");
-
 
                     scatterSvg.append("g")
                         .attr("class", "xaxis")
@@ -122,11 +123,13 @@
                         .attr("transform", "translate(" + (margin.left - 10) + ", 0)")
                         .call(yAxis);
 
-
-                    scatter.selectAll("circle")
+                    let scatter2 = scatter.selectAll("circleg")
                         .data(scatterelevantData)
                         .enter()
-                        .append("circle")
+                        .append("g")
+                        .attr("class","groupedcell");
+
+                        scatter2.append("circle")
                             .attr("class","cell")
                             .attr("cx", function (d) {
                                 return xScale(d.year);
@@ -138,6 +141,7 @@
                             .attr("fill", function (d) {
                                 return colorMap[d.genre];
                             })
+                        
                         .append("title")
                             .text(function (d) { return (d.name + "\n" + d.year + "\n" + d.gross.toFixed(2) + " Million dollars"); });
                     
@@ -171,19 +175,17 @@
                     
 
                     function filterGenre(filter_genre){
-                        scatter
-                            .selectAll(".cell")
+                        scatter2                            
                             .transition().duration(100)
-                            .attr("visibility",function(d){if (d.genre==filter_genre) return "visible";else{return "hidden";}})
+                            .attr("visibility",function(d){if (d.genre==filter_genre) return "visible";else{return "hidden";}});
 
                     }
                     
                     //recolor to all cells
                     function unfilterGenre(){
-                        scatter
-                            .selectAll(".cell")
+                        scatter2            
                             .transition().duration(100)
-                            .attr("visibility",function(d) {return "visible";})
+                            .attr("visibility",function(d) {return "visible";});
                     }
 
                     let idleTimeout;
@@ -198,7 +200,7 @@
                     function updateChart() {
                         
 
-                                let extent = d3.event.selection
+                                let extent = d3.event.selection;
                                 let minX;
                                 let maxX;
                                 let minY;
@@ -242,20 +244,70 @@
                                             
 
                                 
-                                yAxis = d3.select(".yaxis").call(d3.axisLeft(yScale))
-                                scatter
+                                yAxis = d3.select(".yaxis").call(d3.axisLeft(yScale));
+
+                                scatter2
                                     .selectAll(".cell")
                                     .transition().duration(1000)
                                         .attr("cx", function (d) { return xScale(d.year); })
-                                        .attr("cy", function (d) { return yScale(d.gross); })
+                                        .attr("cy", function (d) { return yScale(d.gross); });
+                                        
+                                
+                                //remove all movie titles
+                                scatter2.selectAll(".movielabel").remove();
+                                //add movie titles to scatterplot                               
+                                if(titleToggle){
+                                    scatter2
+                                            .append("text")
+                                                .attr("class",function(d){return "movielabel";})
+                                                .attr("x",function(d){return xScale(d.year);})
+                                                .attr("y",function(d){return yScale(d.gross) -5;})
+                                                .attr("font-size","10px")
+                                                .attr("text-anchor",function(d){
+                                                    if(xScale(d.year) - d.name.length <100){
+                                                        return "start";
+                                                    }
+                                                    else if(xScale(d.year) + d.name.length >580){
+                                                        return "end";
+                                                    }
+                                                    else{
 
+                    
+                                                        return "middle";}
+                                                })
+                                                .text(function(d){
+                                                    
+                                                    if(isBrushed(xScale(minX),yScale(minY),xScale(maxX),yScale(maxY),xScale(d.year),yScale(d.gross))){
+                                    
+                                                        return d.name;}})
+                                    
+                                                .style("stroke","black");    
+                                                
+                                    }
                             }
-
+                               
 
                 }
 
+                //toggle titles for next zoom
+                function toggleButton(){
+                    
+                    let but = document.getElementById("toggleButton");
+                    if(titleToggle){
+                        but.innerText="Enable movie titles for next zooms";
+                    }
+                    else{
+                        but.innerText="Disable movie titles for next zooms";
+                    }
+                    titleToggle=!titleToggle;
+                
+                }
+                //Checks whether a cell is inside the selection
+                function isBrushed(x0,y1,x1,y0,cx,cy){
+                        //console.log("from " + x0 + "," + y0 + " to " +x1 + "," + y1 + " point is " + cx + "," + cy);
+                        return x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1;
 
-
+                }
 
 
                 //Get an array of the different values for a certain attribute
@@ -854,7 +906,9 @@
                                 Select area to zoom, double click to zoom back to the default view.<Br>
                                 Hover over the colors in the legend to filter out other genres.
                             </p>
-                            <div id="scatterplot"></div>
+                            <div id="scatterplot">
+                                <button id="toggleButton" onclick="toggleButton()">Enable movie titles for next zooms</button>
+                            </div>
                             <p>
                                 Heatmap representing the average imdb ratings for each genre and distributor combination.<br>
                                 Darker tones imply higher average imdb rating.<br>
