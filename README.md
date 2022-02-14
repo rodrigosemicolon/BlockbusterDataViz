@@ -1,7 +1,10 @@
-#VI PROJECT
+# VI PROJECT
 
-##blockbusters
+## Motivation
+This project was made as an assignment for the Visualização de informação (Information Visualization) course.
+The goal was to successfully extract information from data regarding the biggest movies in Hollywood over the years.
 
+## Running
 In order to run the app, start a local server from the folder with index.html
 
 Example:
